@@ -1,12 +1,37 @@
 const express = require('express');
-const http = require('http');
-const app = express();
-const server = http.createServer(app);
 const moment = require('moment')
-const formatMessage = require('./utils/messages');
-const randomid = require('randomid');
+const http = require('http');
+const mongoose = require('mongoose')
 const { InMemorySessionStore } = require("./sessionStore");
+const randomid = require('randomid');
+const cors = require('cors')
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+const server = http.createServer(app);
 const sessionStore = new InMemorySessionStore();
+
+
+const URL = 'mongodb://127.0.0.1:27017/notifyDb';
+const URL2 = 'mongodb+srv://nodetut:boskipass@cluster0.yasfu.mongodb.net/notifyDb?retryWrites=true&w=majority'
+
+mongoose.connect(URL, {useNewUrlParser: true, useUnifiedTopology:true})
+    .then(() => console.log('Connected'))
+    .catch((err) => console.log(err));
+
+const con = mongoose.connection;
+
+con.on('open', () => {
+    console.log('Second database connection passed')
+})
+
+con.on('error', () => {
+    console.log('Connection failed');
+})
+
+
+app.use(express.json());
+app.use(cors({credentials:true, origin: true}));
 
 const io = require('socket.io')(server, {
     cors: {
@@ -30,13 +55,16 @@ io.use(async (socket, next) => {
         return next();
         }
     }else{
+        const userID = socket.handshake.auth.id;
         const username = socket.handshake.auth.username;
+
         if (!username) {
             return next(new Error("invalid username"));
         }
 
         socket.sessionID = randomid(14);
         socket.username = username;
+        socket.id = userID;
         next();
     }
 
@@ -47,24 +75,18 @@ io.on("connection", async (socket) => {
     console.log("Socket connected...");
 
     // persist session
+    const userID = socket.handshake.auth.id;
     sessionStore.saveSession(socket.sessionID, {
         id: socket.id,
         username: socket.username,
         connected: true,
     });
 
+
     socket.emit("session", {
         sessionID: socket.sessionID,
-        id: socket.id,
+        id: userID
     });
-
-    // const users = [];
-    // for (let [id, socket] of io.of("/").sockets) {
-    //   users.push({
-    //     id: id,
-    //     username: socket.username,
-    //   });
-    // }
 
     const users = [];
     const sessions = sessionStore.findAllSessions()
@@ -100,16 +122,9 @@ io.on("connection", async (socket) => {
         });
     })
 
-    socket.on('logout', async (sessionID) => {
-        console.log(sessionID)
-        const user = sessionStore.findSession(sessionID)
-        sessionStore.removeSession(sessionID, user)
-    })
-
-
     socket.on("privateMessage", ({message, to }) => {
         console.log(message, to, socket.id)
-        socket.to(to).to(socket.id).emit("privateMessage", {
+        socket.to(socket.id).to(to).emit("privateMessage", {
             message,
             time: moment().format('h:mm a'),
             from: socket.id,
@@ -118,7 +133,8 @@ io.on("connection", async (socket) => {
     });
 })
 
+app.use('/api/users', require("./routes/users")(express));
 
-server.listen(5000, () => {
+server.listen(PORT, () => {
 console.log("Server is listening on port 5000")})
 
