@@ -46,6 +46,7 @@ module.exports = (express) => {
                                 })
                                 console.log(token)
                                 console.log(message)
+                                console.log(user)
                             })
                         }
                     })      

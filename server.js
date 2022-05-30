@@ -15,7 +15,7 @@ const sessionStore = new InMemorySessionStore();
 const URL = 'mongodb://127.0.0.1:27017/notifyDb';
 const URL2 = 'mongodb+srv://nodetut:boskipass@cluster0.yasfu.mongodb.net/notifyDb?retryWrites=true&w=majority'
 
-mongoose.connect(URL, {useNewUrlParser: true, useUnifiedTopology:true})
+mongoose.connect(URL2, {useNewUrlParser: true, useUnifiedTopology:true})
     .then(() => console.log('Connected'))
     .catch((err) => console.log(err));
 
